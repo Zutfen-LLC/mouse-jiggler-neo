@@ -1,4 +1,4 @@
-//! Settings persistence — HKCU\Software\ArkaneSystems\MouseJiggler.
+//! Settings persistence — HKCU\Software\Zutfen-LLC\MouseJiggler.
 //!
 //! Replaces the C# `Settings.Default` (user.config). Five values, loaded
 //! on startup, written through on every change.
@@ -16,7 +16,7 @@ use crate::ids::{
 use crate::jiggle::Mode;
 use crate::util::to_wide;
 
-const SUBKEY: &str = "Software\\ArkaneSystems\\MouseJiggler";
+const SUBKEY: &str = "Software\\Zutfen-LLC\\MouseJiggler";
 
 const V_MINIMIZE: &str = "MinimizeOnStartup";
 const V_RANDOM: &str = "RandomTimer";

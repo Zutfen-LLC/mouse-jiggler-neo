@@ -1,18 +1,18 @@
 # mousejiggler-rs
 
-A lean Rust reimplementation of [Mouse Jiggler](https://github.com/arkane-systems/mousejiggler) for Windows. Virtually jiggles the mouse cursor so the computer appears not idle — useful for keeping screensavers, sleep, and presence indicators at bay.
+A lean Rust reimplementation of [Mouse Jiggler](https://github.com/arkane-systems/mousejiggler) for Windows. Virtually jiggles the mouse cursor so the computer appears not idle - useful for keeping screensavers, sleep, and presence indicators at bay.
 
 No WinForms, no .NET runtime, no extra DLLs. A single native `.exe` that talks directly to the Win32 API via the `windows` crate.
 
 ## Features
 
 - Four jiggle patterns: **Normal**, **Zen** (no-op, keeps the system awake without moving the cursor), **Circle**, **Linear**
-- Configurable period (1–10800 seconds) and distance multiplier (1–120)
+- Configurable period (1-10800 seconds) and distance multiplier (1-120)
 - Optional random timer variation
 - Smart-pause: stops jiggling while the user is actively moving the mouse
 - Keeps the display and system awake via `SetThreadExecutionState`
 - System tray icon with context menu, minimize-to-tray, and start-minimized
-- Per-user settings persisted to `HKCU\Software\ArkaneSystems\MouseJiggler` (registry — wire-compatible with the upstream C# build)
+- Per-user settings persisted to `HKCU\Software\Zutfen-LLC\MouseJiggler` (registry)
 - Single-instance enforcement via a named mutex
 - Per-monitor DPI awareness
 - CLI flags for headless / scripted launches
@@ -21,7 +21,7 @@ No WinForms, no .NET runtime, no extra DLLs. A single native `.exe` that talks d
 
 Requires a recent Rust toolchain (edition 2024) and the MSVC build tools.
 
-```
+```sh
 cargo build --release
 ```
 
@@ -31,9 +31,9 @@ The release profile is tuned for small binaries (`opt-level = "z"`, LTO, single 
 
 ## Usage
 
-Launch with no arguments for the GUI. CLI flags override the stored settings for this run only — they do not get written back to the registry.
+Launch with no arguments for the GUI. CLI flags override the stored settings for this run only - they do not get written back to the registry.
 
-```
+```text
 mousejiggler-rs [options]
 
   -j, --jiggle               Start with jiggling enabled.
@@ -47,9 +47,9 @@ mousejiggler-rs [options]
       --version              Show version.
 ```
 
-Example — start minimized to tray and immediately begin a 30-second Circle jiggle:
+Example - start minimized to tray and immediately begin a 30-second Circle jiggle:
 
-```
+```sh
 mousejiggler-rs -j -m -o Circle -s 30
 ```
 
@@ -57,7 +57,7 @@ mousejiggler-rs -j -m -o Circle -s 30
 
 ## Project layout
 
-```
+```text
 src/
   main.rs              Entry point: CLI parse, single-instance, message loop
   cli.rs               Hand-rolled flag parser
@@ -81,11 +81,11 @@ build.rs               Invokes embed-resource to compile app.rc
 
 This is a from-scratch Rust port that aims to be behaviourally compatible with [ArkaneSystems/MouseJiggler](https://github.com/arkane-systems/mousejiggler):
 
-- Same registry path and value names — settings written by either build are readable by the other.
-- Same single-instance mutex name.
-- Same CLI surface, jiggle patterns, and clamp ranges.
+- Same registry value names and behavior, but under `HKCU\Software\Zutfen-LLC\MouseJiggler`
+- Same single-instance mutex name
+- Same CLI surface, jiggle patterns, and clamp ranges
 
-You can drop this `.exe` in place of the C# build without losing your saved preferences.
+Changing the registry vendor path means this build no longer shares saved preferences with the upstream C# build unless you migrate that key.
 
 ## License
 
