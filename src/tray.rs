@@ -122,7 +122,7 @@ pub fn show_context_menu(owner: HWND, jiggling: bool) -> u32 {
                 | windows::Win32::UI::WindowsAndMessaging::TPM_RETURNCMD,
             pt.x,
             pt.y,
-            0,
+            Some(0),
             owner,
             None,
         );

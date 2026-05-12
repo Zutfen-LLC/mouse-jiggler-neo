@@ -3,13 +3,15 @@
 //! Direct port of MouseJiggler/MainForm.cs.
 
 use windows::Win32::Foundation::{HINSTANCE, HWND, LPARAM, WPARAM};
+use windows::Win32::UI::Controls::{
+    BST_CHECKED, BST_UNCHECKED, CheckDlgButton, IsDlgButtonChecked,
+};
 use windows::Win32::UI::WindowsAndMessaging::{
-    BN_CLICKED, BST_CHECKED, BST_UNCHECKED, CB_ADDSTRING, CB_GETCURSEL, CB_SETCURSEL,
-    CBN_SELCHANGE, CheckDlgButton, CreateDialogParamW, DestroyWindow, EN_CHANGE, GWLP_USERDATA,
-    GetDlgItem, GetDlgItemInt, GetWindowLongPtrW, IsDlgButtonChecked, KillTimer,
-    PostQuitMessage, SHOW_WINDOW_CMD, SW_HIDE, SW_SHOW, SendDlgItemMessageW, SetDlgItemInt,
-    SetDlgItemTextW, SetTimer, SetWindowLongPtrW, ShowWindow, WM_CLOSE, WM_COMMAND, WM_DESTROY,
-    WM_INITDIALOG, WM_TIMER,
+    BN_CLICKED, CB_ADDSTRING, CB_GETCURSEL, CB_SETCURSEL, CBN_SELCHANGE, CreateDialogParamW,
+    DestroyWindow, EN_CHANGE, GWLP_USERDATA, GetDlgItem, GetDlgItemInt, GetWindowLongPtrW,
+    KillTimer, PostQuitMessage, SHOW_WINDOW_CMD, SW_HIDE, SW_SHOW, SendDlgItemMessageW,
+    SetDlgItemInt, SetDlgItemTextW, SetTimer, SetWindowLongPtrW, ShowWindow, WM_CLOSE,
+    WM_COMMAND, WM_DESTROY, WM_INITDIALOG, WM_TIMER,
 };
 use windows::core::PCWSTR;
 
@@ -30,7 +32,6 @@ const MAX_TIP: usize = 63;
 
 pub struct AppState {
     pub instance: HINSTANCE,
-    pub icon: windows::Win32::UI::WindowsAndMessaging::HICON,
     pub settings: Settings,
     pub jiggling: bool,
     pub step: usize,
@@ -55,7 +56,7 @@ pub fn create(instance: HINSTANCE, state: Box<AppState>) -> Option<HWND> {
             Some(instance),
             PCWSTR(IDD_MAIN as usize as *const u16),
             None,
-            Some(dlg_proc),
+            Some(Some(dlg_proc)),
             LPARAM(ptr),
         )
     };
@@ -78,7 +79,7 @@ fn state_from_hwnd<'a>(hwnd: HWND) -> Option<&'a mut AppState> {
     }
 }
 
-extern "system" fn dlg_proc(
+unsafe extern "system" fn dlg_proc(
     hwnd: HWND,
     msg: u32,
     wparam: WPARAM,

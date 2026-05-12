@@ -14,13 +14,13 @@ pub fn show(parent: HWND, instance: HINSTANCE) {
             Some(instance),
             PCWSTR(IDD_ABOUT as usize as *const u16),
             Some(parent),
-            Some(about_proc),
+            Some(Some(about_proc)),
             LPARAM(0),
         );
     }
 }
 
-extern "system" fn about_proc(
+unsafe extern "system" fn about_proc(
     hwnd: HWND,
     msg: u32,
     wparam: WPARAM,
