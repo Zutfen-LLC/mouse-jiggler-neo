@@ -1,10 +1,11 @@
 //! Shared helpers (string conversion, console output).
 
-use windows::Win32::Foundation::HANDLE;
-use windows::Win32::System::Console::{
-    ATTACH_PARENT_PROCESS, AttachConsole, FreeConsole, GetStdHandle, STD_OUTPUT_HANDLE,
-    WriteConsoleW,
-};
+use std::io::{self, Write};
+
+use windows::Win32::Foundation::HWND;
+use windows::Win32::System::Console::{ATTACH_PARENT_PROCESS, AttachConsole, FreeConsole};
+use windows::Win32::UI::WindowsAndMessaging::{MB_ICONERROR, MB_OK, MessageBoxW};
+use windows::core::PCWSTR;
 
 /// Convert a Rust &str to a null-terminated UTF-16 buffer.
 pub fn to_wide(s: &str) -> Vec<u16> {
@@ -27,20 +28,36 @@ pub fn free_console() {
 /// Write a UTF-8 string to the currently attached console, line-by-line.
 /// Falls back silently if no console is attached.
 pub fn console_print(s: &str) {
-    let h: HANDLE = match unsafe { GetStdHandle(STD_OUTPUT_HANDLE) } {
-        Ok(h) if !h.is_invalid() => h,
-        _ => return,
-    };
-    let wide = to_wide(s);
-    // Length excludes the terminating null we appended.
-    let len = (wide.len() - 1) as u32;
-    let mut written: u32 = 0;
-    unsafe {
-        let _ = WriteConsoleW(h, &wide[..len as usize], Some(&mut written), None);
-    }
+    let mut stdout = io::stdout().lock();
+    let _ = stdout.write_all(s.as_bytes());
+    let _ = stdout.flush();
 }
 
 pub fn console_println(s: &str) {
     console_print(s);
     console_print("\r\n");
+}
+
+pub fn report_error(summary: &str, detail: &str) {
+    console_println(summary);
+    if !detail.is_empty() {
+        console_println(detail);
+    }
+
+    let caption = to_wide("Mouse Jiggler");
+    let body = if detail.is_empty() {
+        summary.to_string()
+    } else {
+        format!("{summary}\r\n\r\n{detail}")
+    };
+    let body = to_wide(&body);
+
+    unsafe {
+        let _ = MessageBoxW(
+            Some(HWND::default()),
+            PCWSTR(body.as_ptr()),
+            PCWSTR(caption.as_ptr()),
+            MB_OK | MB_ICONERROR,
+        );
+    }
 }

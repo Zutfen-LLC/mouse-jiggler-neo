@@ -93,7 +93,7 @@ BEGIN
                                           IDC_LBL_COPYRIGHT,   10,  40, 200, 20
     LTEXT           "A utility to continuously jiggle the mouse pointer to prevent screen saver activation.",
                                           IDC_LBL_DESCRIPTION, 10,  62, 200, 20
-    CONTROL         "<a href=\"https://github.com/Zutfen-LLC/mouse-jiggler-neo\">Project page</a>",
+    CONTROL         "<a href=""https://github.com/Zutfen-LLC/mouse-jiggler-neo"">Project page</a>",
                                           IDC_LNK_URL, "SysLink", WS_TABSTOP,
                                                               10,  85, 200, 10
     DEFPUSHBUTTON   "OK",                 IDOK,               165,  85,  45, 14
