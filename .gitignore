@@ -1,0 +1,4 @@
+/target
+
+# Windows debug symbols, especially if binaries get copied out of /target.
+*.pdb
