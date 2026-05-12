@@ -138,36 +138,25 @@ fn write_dword(hkey: HKEY, name: &str, value: u32) {
     let name_w = to_wide(name);
     let bytes = value.to_le_bytes();
     unsafe {
-        let _ = RegSetValueExW(
-            hkey,
-            PCWSTR(name_w.as_ptr()),
-            None,
-            REG_DWORD,
-            Some(&bytes),
-        );
+        let _ = RegSetValueExW(hkey, PCWSTR(name_w.as_ptr()), None, REG_DWORD, Some(&bytes));
     }
 }
 
 fn write_string(hkey: HKEY, name: &str, value: &str) {
     let name_w = to_wide(name);
     let wide: Vec<u16> = value.encode_utf16().chain(std::iter::once(0)).collect();
-    let bytes: &[u8] = unsafe {
-        std::slice::from_raw_parts(wide.as_ptr() as *const u8, wide.len() * 2)
-    };
+    let bytes: &[u8] =
+        unsafe { std::slice::from_raw_parts(wide.as_ptr() as *const u8, wide.len() * 2) };
     unsafe {
-        let _ = RegSetValueExW(
-            hkey,
-            PCWSTR(name_w.as_ptr()),
-            None,
-            REG_SZ,
-            Some(bytes),
-        );
+        let _ = RegSetValueExW(hkey, PCWSTR(name_w.as_ptr()), None, REG_SZ, Some(bytes));
     }
 }
 
 pub fn load() -> Settings {
     let mut s = Settings::default();
-    let Some(hkey) = open_or_create() else { return s; };
+    let Some(hkey) = open_or_create() else {
+        return s;
+    };
 
     if let Some(v) = read_dword(hkey, V_MINIMIZE) {
         s.minimize_on_startup = v != 0;
@@ -192,7 +181,9 @@ pub fn load() -> Settings {
 }
 
 pub fn save(s: &Settings) {
-    let Some(hkey) = open_or_create() else { return; };
+    let Some(hkey) = open_or_create() else {
+        return;
+    };
     write_dword(hkey, V_MINIMIZE, s.minimize_on_startup as u32);
     write_dword(hkey, V_RANDOM, s.random_timer as u32);
     write_string(hkey, V_MODE, s.mode.as_str());
