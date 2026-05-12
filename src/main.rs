@@ -83,7 +83,7 @@ fn main() -> std::process::ExitCode {
         dwICC: ICC_STANDARD_CLASSES | ICC_UPDOWN_CLASS | ICC_LINK_CLASS,
     };
     unsafe {
-        InitCommonControlsEx(&icc);
+        let _ = InitCommonControlsEx(&icc);
     }
 
     let hmodule = unsafe { GetModuleHandleW(None) }.expect("GetModuleHandleW");
@@ -100,7 +100,6 @@ fn main() -> std::process::ExitCode {
 
     let state = Box::new(AppState {
         instance,
-        icon,
         settings: effective.settings.clone(),
         jiggling: false,
         step: 0,
