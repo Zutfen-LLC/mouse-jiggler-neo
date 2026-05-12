@@ -8,9 +8,10 @@ use windows::Win32::UI::WindowsAndMessaging::{
     BN_CLICKED, CB_ADDSTRING, CB_GETCURSEL, CB_SETCURSEL, CBN_SELCHANGE, CreateDialogParamW,
     DestroyWindow, EN_CHANGE, GWLP_USERDATA, GetDlgItem, GetDlgItemInt, GetWindowLongPtrW,
     KillTimer, PostQuitMessage, SHOW_WINDOW_CMD, SW_HIDE, SW_SHOW, SendDlgItemMessageW,
-    SetDlgItemInt, SetDlgItemTextW, SetTimer, SetWindowLongPtrW, ShowWindow, WM_CLOSE,
-    WM_COMMAND, WM_DESTROY, WM_INITDIALOG, WM_TIMER,
+    SetDlgItemInt, SetDlgItemTextW, SetTimer, SetWindowLongPtrW, ShowWindow, WM_CLOSE, WM_COMMAND,
+    WM_DESTROY, WM_INITDIALOG, WM_TIMER,
 };
+use windows::core::Error;
 use windows::core::PCWSTR;
 
 use crate::ids::{
@@ -47,7 +48,7 @@ pub struct AppState {
 /// Create the modeless main dialog and return its HWND.
 /// Ownership of `state` is transferred into the dialog via GWLP_USERDATA;
 /// the WM_DESTROY handler frees it.
-pub fn create(instance: HINSTANCE, state: Box<AppState>) -> Option<HWND> {
+pub fn create(instance: HINSTANCE, state: Box<AppState>) -> Result<HWND, Error> {
     let ptr = Box::into_raw(state) as isize;
     let hwnd = unsafe {
         CreateDialogParamW(
@@ -59,11 +60,11 @@ pub fn create(instance: HINSTANCE, state: Box<AppState>) -> Option<HWND> {
         )
     };
     match hwnd {
-        Ok(h) if !h.is_invalid() => Some(h),
+        Ok(h) if !h.is_invalid() => Ok(h),
         _ => {
             // Restore ownership so we drop properly.
             let _ = unsafe { Box::from_raw(ptr as *mut AppState) };
-            None
+            Err(Error::from_win32())
         }
     }
 }
@@ -77,12 +78,7 @@ fn state_from_hwnd<'a>(hwnd: HWND) -> Option<&'a mut AppState> {
     }
 }
 
-unsafe extern "system" fn dlg_proc(
-    hwnd: HWND,
-    msg: u32,
-    wparam: WPARAM,
-    lparam: LPARAM,
-) -> isize {
+unsafe extern "system" fn dlg_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> isize {
     match msg {
         WM_INITDIALOG => {
             // Install state pointer.
@@ -186,13 +182,7 @@ fn init_controls(hwnd: HWND, state: &mut AppState) {
         .position(|&m| m == state.settings.mode)
         .unwrap_or(0);
     unsafe {
-        SendDlgItemMessageW(
-            hwnd,
-            IDC_CMB_MODE,
-            CB_SETCURSEL,
-            WPARAM(idx),
-            LPARAM(0),
-        );
+        SendDlgItemMessageW(hwnd, IDC_CMB_MODE, CB_SETCURSEL, WPARAM(idx), LPARAM(0));
     }
 
     // Numeric edits (clamped to limits).
@@ -283,16 +273,14 @@ fn handle_tray_command(hwnd: HWND, state: &mut AppState, cmd: u32) {
             set_check(hwnd, IDC_JIGGLING, false);
             set_jiggling(hwnd, state, false);
         }
-        c if c == IDM_TRAY_EXIT => {
-            unsafe {
-                let _ = windows::Win32::UI::WindowsAndMessaging::PostMessageW(
-                    Some(hwnd),
-                    WM_CLOSE,
-                    WPARAM(0),
-                    LPARAM(0),
-                );
-            }
-        }
+        c if c == IDM_TRAY_EXIT => unsafe {
+            let _ = windows::Win32::UI::WindowsAndMessaging::PostMessageW(
+                Some(hwnd),
+                WM_CLOSE,
+                WPARAM(0),
+                LPARAM(0),
+            );
+        },
         _ => {}
     }
 }
@@ -315,7 +303,9 @@ fn set_jiggling(hwnd: HWND, state: &mut AppState, on: bool) {
 }
 
 fn restart_timer(hwnd: HWND, state: &AppState) {
-    let interval_ms = (state.settings.period_secs as u32).saturating_mul(1000).max(1);
+    let interval_ms = (state.settings.period_secs as u32)
+        .saturating_mul(1000)
+        .max(1);
     unsafe {
         SetTimer(Some(hwnd), TIMER_JIGGLE, interval_ms, None);
     }
@@ -454,4 +444,3 @@ fn update_period_display(hwnd: HWND, secs: u32) {
         let _ = SetDlgItemTextW(hwnd, IDC_LBL_PERIOD_DISPLAY, PCWSTR(wide.as_ptr()));
     }
 }
-

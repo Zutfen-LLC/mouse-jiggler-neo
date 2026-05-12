@@ -21,8 +21,8 @@ use windows::Win32::UI::HiDpi::{
     DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2, SetProcessDpiAwarenessContext,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    DispatchMessageW, GetMessageW, HICON, IsDialogMessageW, LoadIconW, MSG, SW_SHOW,
-    ShowWindow, TranslateMessage,
+    DispatchMessageW, GetMessageW, HICON, IsDialogMessageW, LoadIconW, MSG, SW_SHOW, ShowWindow,
+    TranslateMessage,
 };
 use windows::core::PCWSTR;
 
@@ -46,8 +46,10 @@ fn main() -> std::process::ExitCode {
             return std::process::ExitCode::from(code as u8);
         }
         ParseOutcome::Error(msg) => {
-            util::console_println(&format!("error: {msg}"));
-            util::console_println("Run with --help for usage information.");
+            util::report_error(
+                &format!("error: {msg}"),
+                "Run with --help for usage information.",
+            );
             if attached {
                 util::free_console();
             }
@@ -59,7 +61,7 @@ fn main() -> std::process::ExitCode {
     let _lock = match single_instance::acquire() {
         AcquireResult::Acquired(l) => l,
         AcquireResult::AlreadyRunning => {
-            util::console_println("Mouse Jiggler is already running. Aborting.");
+            util::report_error("Mouse Jiggler is already running. Aborting.", "");
             if attached {
                 util::free_console();
             }
@@ -89,10 +91,8 @@ fn main() -> std::process::ExitCode {
     let hmodule = unsafe { GetModuleHandleW(None) }.expect("GetModuleHandleW");
     let instance = HINSTANCE(hmodule.0);
 
-    let icon: HICON = unsafe {
-        LoadIconW(Some(instance), PCWSTR(IDI_APP as usize as *const u16))
-    }
-    .unwrap_or_default();
+    let icon: HICON = unsafe { LoadIconW(Some(instance), PCWSTR(IDI_APP as usize as *const u16)) }
+        .unwrap_or_default();
 
     // Resolve effective initial state from (settings ⊕ CLI overrides).
     let stored = settings::load();
@@ -113,8 +113,17 @@ fn main() -> std::process::ExitCode {
         initializing: false,
     });
 
-    let Some(hwnd) = ui_main::create(instance, state) else {
-        return std::process::ExitCode::from(2);
+    let hwnd = match ui_main::create(instance, state) {
+        Ok(hwnd) => hwnd,
+        Err(err) => {
+            let detail = format!("Failed to create the main dialog.\r\nWin32 error: {err}");
+            let attached = util::attach_parent_console();
+            util::report_error("Mouse Jiggler could not start.", &detail);
+            if attached {
+                util::free_console();
+            }
+            return std::process::ExitCode::from(2);
+        }
     };
 
     // The Tray's owner HWND was created with a placeholder; fix it now.
