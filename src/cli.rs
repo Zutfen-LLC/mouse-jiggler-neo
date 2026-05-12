@@ -1,4 +1,4 @@
-//! Hand-rolled CLI parser matching MouseJiggler/Program.cs:100-203.
+//! Hand-rolled CLI parser.
 //!
 //! Flags:
 //!   -j --jiggle             Start with jiggling enabled.

@@ -1,6 +1,4 @@
 //! Main dialog WndProc, control sync, jiggle tick.
-//!
-//! Direct port of MouseJiggler/MainForm.cs.
 
 use windows::Win32::Foundation::{HINSTANCE, HWND, LPARAM, WPARAM};
 use windows::Win32::UI::Controls::{
@@ -138,7 +136,7 @@ unsafe extern "system" fn dlg_proc(
             0
         }
         WM_CLOSE => {
-            // Match upstream: closing the window exits the application.
+            // Closing the window exits the application.
             let Some(state) = state_from_hwnd(hwnd) else {
                 return 0;
             };

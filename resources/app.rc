@@ -21,7 +21,7 @@ BEGIN
     BEGIN
         BLOCK "040904b0"
         BEGIN
-            VALUE "CompanyName",      "Arkane Systems"
+            VALUE "CompanyName",      "Zutfen LLC"
             VALUE "FileDescription",  "Mouse Jiggler (Rust)"
             VALUE "FileVersion",      "3.0.0.0"
             VALUE "InternalName",     "mousejiggler-rs"
@@ -89,11 +89,11 @@ BEGIN
     ICON            IDI_APP,              -1,                  10,  10,  20, 20
     LTEXT           "Mouse Jiggler (Rust)", IDC_LBL_APPNAME,   40,  10, 170,  9
     LTEXT           "Version 3.0.0",      IDC_LBL_VERSION,     40,  22, 170,  9
-    LTEXT           "Copyright \xa9 Alistair J. R. Young 2007-2026.\nRust port \xa9 Eric Sutphen 2026.",
+    LTEXT           "Copyright \xa9 Eric Sutphen 2026.",
                                           IDC_LBL_COPYRIGHT,   10,  40, 200, 20
     LTEXT           "A utility to continuously jiggle the mouse pointer to prevent screen saver activation.",
                                           IDC_LBL_DESCRIPTION, 10,  62, 200, 20
-    CONTROL         "<a href=\"https://github.com/arkane-systems/mousejiggler\">Project page</a>",
+    CONTROL         "<a href=\"https://github.com/Zutfen-LLC/mouse-jiggler-neo\">Project page</a>",
                                           IDC_LNK_URL, "SysLink", WS_TABSTOP,
                                                               10,  85, 200, 10
     DEFPUSHBUTTON   "OK",                 IDOK,               165,  85,  45, 14

@@ -1,7 +1,6 @@
 //! Single-instance enforcement via a named mutex.
 //!
-//! Mirrors MouseJiggler/Program.cs:41-56 — mutex name kept identical so
-//! the Rust port mutually excludes with the upstream C# build.
+//! The mutex name is stable so duplicate launches from this build collide.
 
 use windows::Win32::Foundation::{ERROR_ALREADY_EXISTS, GetLastError, HANDLE};
 use windows::Win32::System::Threading::CreateMutexW;
@@ -9,7 +8,7 @@ use windows::core::PCWSTR;
 
 use crate::util::to_wide;
 
-const MUTEX_NAME: &str = "single instance: ArkaneSystems.MouseJiggler";
+const MUTEX_NAME: &str = "single instance: ZutfenLLC.MouseJiggler";
 
 /// Handle to a held mutex. Drop on process exit; Windows releases the
 /// kernel object automatically when the handle is closed.
