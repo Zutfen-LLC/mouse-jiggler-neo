@@ -74,11 +74,7 @@ where
                 let Some(v) = raw.get(i + 1) else {
                     return ParseOutcome::Error(format!("{arg} requires a value"));
                 };
-                let n: u32 = v
-                    .parse()
-                    .map_err(|_| ())
-                    .and_then(|n: u32| Ok(n))
-                    .unwrap_or(0);
+                let n: u32 = v.parse().unwrap_or(0);
                 if n < PERIOD_MIN {
                     return ParseOutcome::Error("Period cannot be shorter than 1 second.".into());
                 }

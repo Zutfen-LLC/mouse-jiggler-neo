@@ -303,9 +303,7 @@ fn set_jiggling(hwnd: HWND, state: &mut AppState, on: bool) {
 }
 
 fn restart_timer(hwnd: HWND, state: &AppState) {
-    let interval_ms = (state.settings.period_secs as u32)
-        .saturating_mul(1000)
-        .max(1);
+    let interval_ms = state.settings.period_secs.saturating_mul(1000).max(1);
     unsafe {
         SetTimer(Some(hwnd), TIMER_JIGGLE, interval_ms, None);
     }
@@ -335,7 +333,7 @@ fn on_jiggle_tick(hwnd: HWND, state: &mut AppState) {
     } else {
         state.settings.period_secs
     };
-    let next_ms = (next_secs as u32).saturating_mul(1000).max(1);
+    let next_ms = next_secs.saturating_mul(1000).max(1);
     unsafe {
         SetTimer(Some(hwnd), TIMER_JIGGLE, next_ms, None);
     }

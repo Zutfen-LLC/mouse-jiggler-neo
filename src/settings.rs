@@ -164,10 +164,10 @@ pub fn load() -> Settings {
     if let Some(v) = read_dword(hkey, V_RANDOM) {
         s.random_timer = v != 0;
     }
-    if let Some(v) = read_string(hkey, V_MODE) {
-        if let Some(m) = Mode::parse(&v) {
-            s.mode = m;
-        }
+    if let Some(v) = read_string(hkey, V_MODE)
+        && let Some(m) = Mode::parse(&v)
+    {
+        s.mode = m;
     }
     if let Some(v) = read_dword(hkey, V_PERIOD) {
         s.period_secs = v.clamp(PERIOD_MIN, PERIOD_MAX);
