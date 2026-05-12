@@ -1,6 +1,6 @@
 # mousejiggler-rs
 
-A lean Rust reimplementation of [Mouse Jiggler](https://github.com/arkane-systems/mousejiggler) for Windows. Virtually jiggles the mouse cursor so the computer appears not idle - useful for keeping screensavers, sleep, and presence indicators at bay.
+A lean Rust implementation of Mouse Jiggler for Windows. Virtually jiggles the mouse cursor so the computer appears not idle - useful for keeping screensavers, sleep, and presence indicators at bay.
 
 No WinForms, no .NET runtime, no extra DLLs. A single native `.exe` that talks directly to the Win32 API via the `windows` crate.
 
@@ -77,16 +77,15 @@ resources/
 build.rs               Invokes embed-resource to compile app.rc
 ```
 
-## Relationship to upstream Mouse Jiggler
+## Compatibility notes
 
-This is a from-scratch Rust port that aims to be behaviourally compatible with [ArkaneSystems/MouseJiggler](https://github.com/arkane-systems/mousejiggler):
+This build keeps a few historical behaviors for compatibility:
 
 - Same registry value names and behavior, but under `HKCU\Software\Zutfen-LLC\MouseJiggler`
-- Same single-instance mutex name
 - Same CLI surface, jiggle patterns, and clamp ranges
 
-Changing the registry vendor path means this build no longer shares saved preferences with the upstream C# build unless you migrate that key.
+Changing the registry vendor path means this build does not share saved preferences with older builds unless you migrate that key.
 
 ## License
 
-Apache-2.0. See the upstream project for the original C# implementation and its license.
+Apache-2.0. See [LICENSE](LICENSE).

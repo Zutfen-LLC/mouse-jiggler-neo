@@ -1,6 +1,4 @@
 //! Jiggle patterns, SendInput, execution state, smart-pause.
-//!
-//! Direct port of MouseJiggler/{Helpers.cs,JigglePatterns.cs}.
 
 use windows::Win32::Foundation::POINT;
 use windows::Win32::System::Power::{

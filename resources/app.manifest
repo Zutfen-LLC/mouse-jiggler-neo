@@ -2,7 +2,7 @@
 <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
   <assemblyIdentity
       type="win32"
-      name="ArkaneSystems.MouseJigglerRs"
+      name="ZutfenLLC.MouseJigglerRs"
       version="3.0.0.0"/>
   <description>Mouse Jiggler (Rust)</description>
 

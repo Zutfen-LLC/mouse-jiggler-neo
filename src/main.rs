@@ -55,7 +55,7 @@ fn main() -> std::process::ExitCode {
         }
     };
 
-    // Single-instance enforcement (mutex name matches upstream).
+    // Single-instance enforcement.
     let _lock = match single_instance::acquire() {
         AcquireResult::Acquired(l) => l,
         AcquireResult::AlreadyRunning => {
