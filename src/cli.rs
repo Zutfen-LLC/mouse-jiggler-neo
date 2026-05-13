@@ -15,7 +15,7 @@ use crate::ids::{DISTANCE_MAX, DISTANCE_MIN, PERIOD_MAX, PERIOD_MIN};
 use crate::jiggle::Mode;
 use crate::util::console_println;
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, PartialEq, Eq)]
 pub struct Args {
     pub jiggle: bool,
     pub minimized: Option<bool>,
@@ -26,6 +26,7 @@ pub struct Args {
     pub settings_panel: bool,
 }
 
+#[derive(Debug, PartialEq, Eq)]
 pub enum ParseOutcome {
     Run(Args),
     PrintAndExit(i32),
@@ -33,7 +34,15 @@ pub enum ParseOutcome {
 }
 
 pub fn parse() -> ParseOutcome {
-    let raw: Vec<String> = std::env::args().skip(1).collect();
+    parse_from(std::env::args().skip(1))
+}
+
+fn parse_from<I, S>(raw: I) -> ParseOutcome
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
+    let raw: Vec<String> = raw.into_iter().map(|arg| arg.as_ref().to_owned()).collect();
     let mut a = Args::default();
     let mut i = 0;
     while i < raw.len() {
@@ -65,11 +74,9 @@ pub fn parse() -> ParseOutcome {
                 let Some(v) = raw.get(i + 1) else {
                     return ParseOutcome::Error(format!("{arg} requires a value"));
                 };
-                let n: u32 = v.parse().map_err(|_| ()).and_then(|n: u32| Ok(n)).unwrap_or(0);
+                let n: u32 = v.parse().unwrap_or(0);
                 if n < PERIOD_MIN {
-                    return ParseOutcome::Error(
-                        "Period cannot be shorter than 1 second.".into(),
-                    );
+                    return ParseOutcome::Error("Period cannot be shorter than 1 second.".into());
                 }
                 if n > PERIOD_MAX {
                     return ParseOutcome::Error(
@@ -129,4 +136,85 @@ Options:
 
 pub fn print_version() {
     console_println(concat!("mousejiggler-rs ", env!("CARGO_PKG_VERSION")));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::jiggle::Mode;
+
+    #[test]
+    fn parses_empty_args() {
+        assert_eq!(
+            parse_from(std::iter::empty::<&str>()),
+            ParseOutcome::Run(Args::default())
+        );
+    }
+
+    #[test]
+    fn parses_all_supported_overrides() {
+        let parsed = parse_from([
+            "--jiggle",
+            "--minimized",
+            "--mode",
+            "Circle",
+            "--random",
+            "--seconds",
+            "30",
+            "--distance",
+            "4",
+            "--settings",
+        ]);
+
+        assert_eq!(
+            parsed,
+            ParseOutcome::Run(Args {
+                jiggle: true,
+                minimized: Some(true),
+                mode: Some(Mode::Circle),
+                random: Some(true),
+                seconds: Some(30),
+                distance: Some(4),
+                settings_panel: true,
+            })
+        );
+    }
+
+    #[test]
+    fn rejects_unknown_mode() {
+        assert_eq!(
+            parse_from(["--mode", "Diagonal"]),
+            ParseOutcome::Error("Invalid jiggle mode: Diagonal".into())
+        );
+    }
+
+    #[test]
+    fn rejects_out_of_range_seconds() {
+        assert_eq!(
+            parse_from(["--seconds", "0"]),
+            ParseOutcome::Error("Period cannot be shorter than 1 second.".into())
+        );
+        assert_eq!(
+            parse_from(["--seconds", "10801"]),
+            ParseOutcome::Error("Period cannot be longer than 10800 seconds.".into())
+        );
+    }
+
+    #[test]
+    fn rejects_out_of_range_distance() {
+        assert_eq!(
+            parse_from(["--distance", "0"]),
+            ParseOutcome::Error("Distance multiplier cannot be less than 1.".into())
+        );
+        assert_eq!(
+            parse_from(["--distance", "121"]),
+            ParseOutcome::Error("Distance multiplier cannot be greater than 120.".into())
+        );
+    }
+
+    #[test]
+    fn exits_for_help_and_version() {
+        assert_eq!(parse_from(["--help"]), ParseOutcome::PrintAndExit(0));
+        assert_eq!(parse_from(["--version"]), ParseOutcome::PrintAndExit(0));
+    }
 }

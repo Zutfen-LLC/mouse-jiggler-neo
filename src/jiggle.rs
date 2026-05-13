@@ -138,3 +138,33 @@ impl PauseDetector {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_modes_case_insensitively() {
+        assert_eq!(Mode::parse("normal"), Some(Mode::Normal));
+        assert_eq!(Mode::parse("ZEN"), Some(Mode::Zen));
+        assert_eq!(Mode::parse("Circle"), Some(Mode::Circle));
+        assert_eq!(Mode::parse("linear"), Some(Mode::Linear));
+        assert_eq!(Mode::parse("diagonal"), None);
+    }
+
+    #[test]
+    fn scales_pattern_steps_by_distance() {
+        assert_eq!(step_delta(Mode::Normal, 0, 3), (12, 12));
+        assert_eq!(step_delta(Mode::Circle, 2, 2), (-4, 6));
+        assert_eq!(step_delta(Mode::Linear, 3, 5), (-20, 0));
+        assert_eq!(step_delta(Mode::Zen, 99, 7), (0, 0));
+    }
+
+    #[test]
+    fn reports_pattern_lengths() {
+        assert_eq!(pattern_len(Mode::Normal), 2);
+        assert_eq!(pattern_len(Mode::Zen), 1);
+        assert_eq!(pattern_len(Mode::Circle), 8);
+        assert_eq!(pattern_len(Mode::Linear), 2);
+    }
+}

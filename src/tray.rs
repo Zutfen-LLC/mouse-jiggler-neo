@@ -6,9 +6,9 @@ use windows::Win32::UI::Shell::{
     Shell_NotifyIconW,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    AppendMenuW, CreatePopupMenu, DestroyMenu, GetCursorPos, HICON, HMENU, MF_SEPARATOR,
-    MF_STRING, SetForegroundWindow, TPM_BOTTOMALIGN, TPM_RIGHTBUTTON, TrackPopupMenu,
-    WM_LBUTTONDBLCLK, WM_RBUTTONUP,
+    AppendMenuW, CreatePopupMenu, DestroyMenu, GetCursorPos, HICON, HMENU, MF_SEPARATOR, MF_STRING,
+    SetForegroundWindow, TPM_BOTTOMALIGN, TPM_RIGHTBUTTON, TrackPopupMenu, WM_LBUTTONDBLCLK,
+    WM_RBUTTONUP,
 };
 use windows::core::PCWSTR;
 
@@ -93,22 +93,30 @@ pub fn show_context_menu(owner: HWND, jiggling: bool) -> u32 {
         };
 
         let open = to_wide("&Open Mouse Jiggler");
-        let _ = AppendMenuW(menu, MF_STRING, IDM_TRAY_OPEN as usize, PCWSTR(open.as_ptr()));
+        let _ = AppendMenuW(
+            menu,
+            MF_STRING,
+            IDM_TRAY_OPEN as usize,
+            PCWSTR(open.as_ptr()),
+        );
         let _ = AppendMenuW(menu, MF_SEPARATOR, 0, PCWSTR::null());
 
         if !jiggling {
             let s = to_wide("&Start Jiggling");
-            let _ =
-                AppendMenuW(menu, MF_STRING, IDM_TRAY_START as usize, PCWSTR(s.as_ptr()));
+            let _ = AppendMenuW(menu, MF_STRING, IDM_TRAY_START as usize, PCWSTR(s.as_ptr()));
         } else {
             let s = to_wide("S&top Jiggling");
-            let _ =
-                AppendMenuW(menu, MF_STRING, IDM_TRAY_STOP as usize, PCWSTR(s.as_ptr()));
+            let _ = AppendMenuW(menu, MF_STRING, IDM_TRAY_STOP as usize, PCWSTR(s.as_ptr()));
         }
 
         let _ = AppendMenuW(menu, MF_SEPARATOR, 0, PCWSTR::null());
         let exit = to_wide("E&xit");
-        let _ = AppendMenuW(menu, MF_STRING, IDM_TRAY_EXIT as usize, PCWSTR(exit.as_ptr()));
+        let _ = AppendMenuW(
+            menu,
+            MF_STRING,
+            IDM_TRAY_EXIT as usize,
+            PCWSTR(exit.as_ptr()),
+        );
 
         let mut pt = POINT::default();
         let _ = GetCursorPos(&mut pt);
@@ -146,4 +154,3 @@ pub enum TrayEvent {
     ContextMenu,
     Other,
 }
-
