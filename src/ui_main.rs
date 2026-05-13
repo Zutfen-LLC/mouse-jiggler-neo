@@ -43,10 +43,12 @@ pub struct AppState {
     pub pause: PauseDetector,
     pub rng: Rng,
     pub tray: Tray,
+    pub tray_hidden: bool,
     pub settings_panel_visible: bool,
     pub start_jiggling_on_load: bool,
     pub minimize_on_load: bool,
     pub show_settings_on_load: bool,
+    pub taskbar_created_msg: u32,
     /// Suppress EN_CHANGE / CBN_SELCHANGE writes during WM_INITDIALOG.
     pub initializing: bool,
 }
@@ -85,6 +87,13 @@ fn state_from_hwnd<'a>(hwnd: HWND) -> Option<&'a mut AppState> {
 }
 
 unsafe extern "system" fn dlg_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> isize {
+    if let Some(state) = state_from_hwnd(hwnd) {
+        if msg == state.taskbar_created_msg {
+            on_taskbar_created(state);
+            return 0;
+        }
+    }
+
     match msg {
         WM_INITDIALOG => {
             // Install state pointer.
@@ -416,27 +425,32 @@ fn set_settings_panel_visible(hwnd: HWND, on: bool) {
 }
 
 fn minimize_to_tray(hwnd: HWND, state: &mut AppState) {
-    if !state.tray.visible {
-        state.tray.add(&tooltip_text(state));
-    } else {
-        update_tooltip(state);
-    }
+    state.tray_hidden = true;
+    let _ = state.tray.ensure_added(&tooltip_text(state));
     unsafe {
         let _ = ShowWindow(hwnd, SW_HIDE);
     }
 }
 
 fn restore_from_tray(hwnd: HWND, state: &mut AppState) {
-    state.tray.remove();
+    state.tray_hidden = false;
+    let _ = state.tray.remove();
     unsafe {
         let _ = ShowWindow(hwnd, SW_SHOW);
     }
 }
 
 fn update_tooltip(state: &mut AppState) {
-    if state.tray.visible {
+    if state.tray.registered {
         let text = tooltip_text(state);
-        state.tray.update_tip(&text);
+        let _ = state.tray.update_tip(&text);
+    }
+}
+
+fn on_taskbar_created(state: &mut AppState) {
+    state.tray.registered = false;
+    if state.tray_hidden {
+        let _ = state.tray.add(&tooltip_text(state));
     }
 }
 
