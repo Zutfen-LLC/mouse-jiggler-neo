@@ -9,10 +9,11 @@ No WinForms, no .NET runtime, no extra DLLs. A single native `.exe` that talks d
 - Four jiggle patterns: **Normal**, **Zen** (no-op, keeps the system awake without moving the cursor), **Circle**, **Linear**
 - Configurable period (1-10800 seconds) and distance multiplier (1-120)
 - Optional random timer variation
+- Optional daily auto-stop at a configured local time
 - Smart-pause: stops jiggling while the user is actively moving the mouse
 - Keeps the display and system awake via `SetThreadExecutionState`
 - System tray icon with context menu, minimize-to-tray, and start-minimized
-- Per-user settings persisted to `HKCU\Software\Zutfen-LLC\MouseJiggler` (registry)
+- Per-user settings persisted to `HKCU\Software\Zutfen-LLC\MouseJiggler` (registry), including daily auto-stop time
 - Single-instance enforcement via a named mutex
 - Per-monitor DPI awareness
 - CLI flags for headless / scripted launches

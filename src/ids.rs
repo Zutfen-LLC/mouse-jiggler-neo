@@ -17,6 +17,11 @@ pub const IDC_LBL_PERIOD_DISPLAY: i32 = 1023;
 pub const IDC_NUD_DISTANCE: i32 = 1031;
 pub const IDC_CB_RANDOM: i32 = 1040;
 pub const IDC_CB_MINIMIZE: i32 = 1041;
+pub const IDC_CB_AUTO_STOP: i32 = 1042;
+pub const IDC_NUD_STOP_HOUR: i32 = 1043;
+pub const IDC_LBL_STOP_COLON: i32 = 1044;
+pub const IDC_NUD_STOP_MINUTE: i32 = 1045;
+pub const IDC_CMB_STOP_AMPM: i32 = 1046;
 pub const IDC_BTN_TRAYIFY: i32 = 1050;
 pub const IDC_BTN_ABOUT: i32 = 1051;
 

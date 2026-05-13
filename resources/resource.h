@@ -22,6 +22,11 @@
 #define IDC_UD_DISTANCE         1032
 #define IDC_CB_RANDOM           1040
 #define IDC_CB_MINIMIZE         1041
+#define IDC_CB_AUTO_STOP        1042
+#define IDC_NUD_STOP_HOUR       1043
+#define IDC_LBL_STOP_COLON      1044
+#define IDC_NUD_STOP_MINUTE     1045
+#define IDC_CMB_STOP_AMPM       1046
 #define IDC_BTN_TRAYIFY         1050
 #define IDC_BTN_ABOUT           1051
 

@@ -1,6 +1,6 @@
 //! Settings persistence — HKCU\Software\Zutfen-LLC\MouseJiggler.
 //!
-//! Replaces the C# `Settings.Default` (user.config). Five values, loaded
+//! Replaces the C# `Settings.Default` (user.config). Seven values, loaded
 //! on startup, written through on every change.
 
 use windows::Win32::System::Registry::{
@@ -23,6 +23,10 @@ const V_RANDOM: &str = "RandomTimer";
 const V_MODE: &str = "JiggleMode";
 const V_PERIOD: &str = "JigglePeriod";
 const V_DISTANCE: &str = "JiggleDistance";
+const V_AUTO_STOP_ENABLED: &str = "AutoStopEnabled";
+const V_AUTO_STOP_MINUTES_LOCAL: &str = "AutoStopMinutesLocal";
+
+pub const AUTO_STOP_DEFAULT_MINUTES_LOCAL: u16 = 17 * 60;
 
 #[derive(Clone, Debug)]
 pub struct Settings {
@@ -31,6 +35,8 @@ pub struct Settings {
     pub mode: Mode,
     pub period_secs: u32,
     pub distance: u32,
+    pub auto_stop_enabled: bool,
+    pub auto_stop_minutes_local: u16,
 }
 
 impl Default for Settings {
@@ -41,7 +47,17 @@ impl Default for Settings {
             mode: Mode::Normal,
             period_secs: PERIOD_DEFAULT,
             distance: DISTANCE_DEFAULT,
+            auto_stop_enabled: false,
+            auto_stop_minutes_local: AUTO_STOP_DEFAULT_MINUTES_LOCAL,
         }
+    }
+}
+
+fn clamp_auto_stop_minutes(value: u32) -> u16 {
+    if value < 24 * 60 {
+        value as u16
+    } else {
+        AUTO_STOP_DEFAULT_MINUTES_LOCAL
     }
 }
 
@@ -186,6 +202,12 @@ pub fn load() -> Settings {
     if let Some(v) = read_dword(hkey, V_DISTANCE) {
         s.distance = v.clamp(DISTANCE_MIN, DISTANCE_MAX);
     }
+    if let Some(v) = read_dword(hkey, V_AUTO_STOP_ENABLED) {
+        s.auto_stop_enabled = v != 0;
+    }
+    if let Some(v) = read_dword(hkey, V_AUTO_STOP_MINUTES_LOCAL) {
+        s.auto_stop_minutes_local = clamp_auto_stop_minutes(v);
+    }
 
     close(hkey);
     s
@@ -198,5 +220,11 @@ pub fn save(s: &Settings) {
     write_string(hkey, V_MODE, s.mode.as_str());
     write_dword(hkey, V_PERIOD, s.period_secs);
     write_dword(hkey, V_DISTANCE, s.distance);
+    write_dword(hkey, V_AUTO_STOP_ENABLED, s.auto_stop_enabled as u32);
+    write_dword(
+        hkey,
+        V_AUTO_STOP_MINUTES_LOCAL,
+        s.auto_stop_minutes_local as u32,
+    );
     close(hkey);
 }
