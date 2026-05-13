@@ -1,6 +1,6 @@
-# mousejiggler-rs
+# mouse-jiggler-neo
 
-A lean Rust implementation of Mouse Jiggler for Windows. Virtually jiggles the mouse cursor so the computer appears not idle - useful for keeping screensavers, sleep, and presence indicators at bay.
+A lean Rust implementation of Mouse Jiggler Neo for Windows. Virtually jiggles the mouse cursor so the computer appears not idle - useful for keeping screensavers, sleep, and presence indicators at bay.
 
 No WinForms, no .NET runtime, no extra DLLs. A single native `.exe` that talks directly to the Win32 API via the `windows` crate.
 
@@ -26,7 +26,7 @@ Requires a recent Rust toolchain (edition 2024) and the MSVC build tools.
 cargo build --release
 ```
 
-The release profile is tuned for small binaries (`opt-level = "z"`, LTO, single codegen unit, `panic = "abort"`, symbol stripping). The resulting executable is at `target/release/mousejiggler-rs.exe`.
+The release profile is tuned for small binaries (`opt-level = "z"`, LTO, single codegen unit, `panic = "abort"`, symbol stripping). The resulting executable is at `target/release/mouse-jiggler-neo.exe`.
 
 `build.rs` compiles `resources/app.rc` (icon, manifest, dialog templates) and embeds it into the binary via the `embed-resource` crate.
 
@@ -35,7 +35,7 @@ The release profile is tuned for small binaries (`opt-level = "z"`, LTO, single 
 Launch with no arguments for the GUI. CLI flags override the stored settings for this run only - they do not get written back to the registry.
 
 ```text
-mousejiggler-rs [options]
+mouse-jiggler-neo [options]
 
   -j, --jiggle               Start with jiggling enabled.
   -m, --minimized            Start minimized.
@@ -51,7 +51,7 @@ mousejiggler-rs [options]
 Example - start minimized to tray and immediately begin a 30-second Circle jiggle:
 
 ```sh
-mousejiggler-rs -j -m -o Circle -s 30
+mouse-jiggler-neo -j -m -o Circle -s 30
 ```
 
 `--help` and `--version` print to the parent console when launched from a terminal (the process is otherwise a `windows_subsystem = "windows"` GUI app, so it does not allocate a console of its own).

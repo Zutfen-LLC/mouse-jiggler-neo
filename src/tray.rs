@@ -92,7 +92,7 @@ pub fn show_context_menu(owner: HWND, jiggling: bool) -> u32 {
             Err(_) => return 0,
         };
 
-        let open = to_wide("&Open Mouse Jiggler");
+        let open = to_wide("&Open Mouse Jiggler Neo");
         let _ = AppendMenuW(
             menu,
             MF_STRING,

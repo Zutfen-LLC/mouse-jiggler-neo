@@ -61,7 +61,7 @@ fn main() -> std::process::ExitCode {
     let _lock = match single_instance::acquire() {
         AcquireResult::Acquired(l) => l,
         AcquireResult::AlreadyRunning => {
-            util::report_error("Mouse Jiggler is already running. Aborting.", "");
+            util::report_error("Mouse Jiggler Neo is already running. Aborting.", "");
             if attached {
                 util::free_console();
             }
@@ -118,7 +118,7 @@ fn main() -> std::process::ExitCode {
         Err(err) => {
             let detail = format!("Failed to create the main dialog.\r\nWin32 error: {err}");
             let attached = util::attach_parent_console();
-            util::report_error("Mouse Jiggler could not start.", &detail);
+            util::report_error("Mouse Jiggler Neo could not start.", &detail);
             if attached {
                 util::free_console();
             }

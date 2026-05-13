@@ -1,8 +1,8 @@
 [package]
-name = "mousejiggler-rs"
+name = "mouse-jiggler-neo"
 version = "3.0.0"
 edition = "2024"
-description = "Lean Rust reimplementation of Mouse Jiggler"
+description = "Lean Rust implementation of Mouse Jiggler Neo"
 authors = ["Eric Sutphen"]
 license = "Apache-2.0"
 

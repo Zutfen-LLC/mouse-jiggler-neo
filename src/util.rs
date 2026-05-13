@@ -44,7 +44,7 @@ pub fn report_error(summary: &str, detail: &str) {
         console_println(detail);
     }
 
-    let caption = to_wide("Mouse Jiggler");
+    let caption = to_wide("Mouse Jiggler Neo");
     let body = if detail.is_empty() {
         summary.to_string()
     } else {
