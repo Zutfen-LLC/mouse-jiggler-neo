@@ -1,9 +1,11 @@
 //! Main dialog WndProc, control sync, jiggle tick.
 
 use windows::Win32::Foundation::{HINSTANCE, HWND, LPARAM, WPARAM};
+use windows::Win32::System::SystemInformation::GetLocalTime;
 use windows::Win32::UI::Controls::{
     BST_CHECKED, BST_UNCHECKED, CheckDlgButton, IsDlgButtonChecked,
 };
+use windows::Win32::UI::Input::KeyboardAndMouse::EnableWindow;
 use windows::Win32::UI::WindowsAndMessaging::{
     BN_CLICKED, CB_ADDSTRING, CB_GETCURSEL, CB_SETCURSEL, CBN_SELCHANGE, CreateDialogParamW,
     DestroyWindow, EN_CHANGE, GWLP_USERDATA, GetDlgItem, GetDlgItemInt, GetWindowLongPtrW,
@@ -15,10 +17,12 @@ use windows::core::Error;
 use windows::core::PCWSTR;
 
 use crate::ids::{
-    DISTANCE_MAX, DISTANCE_MIN, IDC_BTN_ABOUT, IDC_BTN_TRAYIFY, IDC_CB_MINIMIZE, IDC_CB_RANDOM,
-    IDC_CMB_MODE, IDC_JIGGLING, IDC_LBL_PERIOD_DISPLAY, IDC_NUD_DISTANCE, IDC_NUD_PERIOD,
-    IDC_PANEL_SETTINGS, IDC_SETTINGS, IDD_MAIN, IDM_TRAY_EXIT, IDM_TRAY_OPEN, IDM_TRAY_START,
-    IDM_TRAY_STOP, PERIOD_MAX, PERIOD_MIN, TIMER_JIGGLE, WM_APP_TRAY,
+    DISTANCE_MAX, DISTANCE_MIN, IDC_BTN_ABOUT, IDC_BTN_TRAYIFY, IDC_CB_AUTO_STOP,
+    IDC_CB_MINIMIZE, IDC_CB_RANDOM, IDC_CMB_MODE, IDC_CMB_STOP_AMPM, IDC_JIGGLING,
+    IDC_LBL_PERIOD_DISPLAY, IDC_LBL_STOP_COLON, IDC_NUD_DISTANCE, IDC_NUD_PERIOD,
+    IDC_NUD_STOP_HOUR, IDC_NUD_STOP_MINUTE, IDC_PANEL_SETTINGS, IDC_SETTINGS, IDD_MAIN,
+    IDM_TRAY_EXIT, IDM_TRAY_OPEN, IDM_TRAY_START, IDM_TRAY_STOP, PERIOD_MAX, PERIOD_MIN,
+    TIMER_JIGGLE, WM_APP_TRAY,
 };
 use crate::jiggle::{self, Mode, PauseDetector};
 use crate::rng::Rng;
@@ -28,6 +32,8 @@ use crate::ui_about;
 use crate::util::to_wide;
 
 const MAX_TIP: usize = 63;
+const AM_INDEX: usize = 0;
+const PM_INDEX: usize = 1;
 
 pub struct AppState {
     pub instance: HINSTANCE,
@@ -94,7 +100,7 @@ unsafe extern "system" fn dlg_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
                 toggle_settings_panel(hwnd, state, true);
             }
             if state.start_jiggling_on_load {
-                set_jiggling(hwnd, state, true);
+                set_jiggling(hwnd, state, true, true);
             }
             if state.minimize_on_load {
                 minimize_to_tray(hwnd, state);
@@ -193,6 +199,9 @@ fn init_controls(hwnd: HWND, state: &mut AppState) {
     // Checkboxes.
     set_check(hwnd, IDC_CB_RANDOM, state.settings.random_timer);
     set_check(hwnd, IDC_CB_MINIMIZE, state.settings.minimize_on_startup);
+    set_check(hwnd, IDC_CB_AUTO_STOP, state.settings.auto_stop_enabled);
+    init_auto_stop_controls(hwnd, state.settings.auto_stop_minutes_local);
+    set_auto_stop_controls_enabled(hwnd, state.settings.auto_stop_enabled);
 
     // Settings panel hidden by default.
     set_settings_panel_visible(hwnd, false);
@@ -208,7 +217,7 @@ fn handle_command(hwnd: HWND, state: &mut AppState, wparam: WPARAM, _lparam: LPA
     match (id, notify) {
         (IDC_JIGGLING, n) if n == BN_CLICKED => {
             let on = is_checked(hwnd, IDC_JIGGLING);
-            set_jiggling(hwnd, state, on);
+            set_jiggling(hwnd, state, on, false);
         }
         (IDC_SETTINGS, n) if n == BN_CLICKED => {
             let on = is_checked(hwnd, IDC_SETTINGS);
@@ -258,6 +267,27 @@ fn handle_command(hwnd: HWND, state: &mut AppState, wparam: WPARAM, _lparam: LPA
             state.settings.minimize_on_startup = is_checked(hwnd, IDC_CB_MINIMIZE);
             settings::save(&state.settings);
         }
+        (IDC_CB_AUTO_STOP, n) if n == BN_CLICKED => {
+            state.settings.auto_stop_enabled = is_checked(hwnd, IDC_CB_AUTO_STOP);
+            settings::save(&state.settings);
+            set_auto_stop_controls_enabled(hwnd, state.settings.auto_stop_enabled);
+            update_tooltip(state);
+        }
+        (IDC_NUD_STOP_HOUR, n) if n == EN_CHANGE && !state.initializing => {
+            state.settings.auto_stop_minutes_local = read_auto_stop_minutes(hwnd);
+            settings::save(&state.settings);
+            update_tooltip(state);
+        }
+        (IDC_NUD_STOP_MINUTE, n) if n == EN_CHANGE && !state.initializing => {
+            state.settings.auto_stop_minutes_local = read_auto_stop_minutes(hwnd);
+            settings::save(&state.settings);
+            update_tooltip(state);
+        }
+        (IDC_CMB_STOP_AMPM, n) if n == CBN_SELCHANGE && !state.initializing => {
+            state.settings.auto_stop_minutes_local = read_auto_stop_minutes(hwnd);
+            settings::save(&state.settings);
+            update_tooltip(state);
+        }
         _ => {}
     }
 }
@@ -267,11 +297,11 @@ fn handle_tray_command(hwnd: HWND, state: &mut AppState, cmd: u32) {
         c if c == IDM_TRAY_OPEN => restore_from_tray(hwnd, state),
         c if c == IDM_TRAY_START => {
             set_check(hwnd, IDC_JIGGLING, true);
-            set_jiggling(hwnd, state, true);
+            set_jiggling(hwnd, state, true, false);
         }
         c if c == IDM_TRAY_STOP => {
             set_check(hwnd, IDC_JIGGLING, false);
-            set_jiggling(hwnd, state, false);
+            set_jiggling(hwnd, state, false, false);
         }
         c if c == IDM_TRAY_EXIT => unsafe {
             let _ = windows::Win32::UI::WindowsAndMessaging::PostMessageW(
@@ -287,13 +317,20 @@ fn handle_tray_command(hwnd: HWND, state: &mut AppState, cmd: u32) {
 
 // ---------- Jiggle tick ----------
 
-fn set_jiggling(hwnd: HWND, state: &mut AppState, on: bool) {
+fn set_jiggling(hwnd: HWND, state: &mut AppState, on: bool, enforce_cutoff_now: bool) {
     state.jiggling = on;
     state.step = 0;
 
     if on {
         jiggle::stay_awake();
         state.pause.update_position();
+        if enforce_cutoff_now && auto_stop_due_now(&state.settings) {
+            state.jiggling = false;
+            jiggle::allow_sleep();
+            set_check(hwnd, IDC_JIGGLING, false);
+            update_tooltip(state);
+            return;
+        }
         restart_timer(hwnd, state);
     } else {
         jiggle::allow_sleep();
@@ -312,6 +349,12 @@ fn restart_timer(hwnd: HWND, state: &AppState) {
 }
 
 fn on_jiggle_tick(hwnd: HWND, state: &mut AppState) {
+    if auto_stop_due_now(&state.settings) {
+        set_check(hwnd, IDC_JIGGLING, false);
+        set_jiggling(hwnd, state, false, false);
+        return;
+    }
+
     // Smart pause — skip this tick if the user moved the cursor.
     if state.pause.has_mouse_moved() {
         return;
@@ -359,6 +402,11 @@ fn set_settings_panel_visible(hwnd: HWND, on: bool) {
         IDC_NUD_DISTANCE,
         IDC_CB_RANDOM,
         IDC_CB_MINIMIZE,
+        IDC_CB_AUTO_STOP,
+        IDC_NUD_STOP_HOUR,
+        IDC_LBL_STOP_COLON,
+        IDC_NUD_STOP_MINUTE,
+        IDC_CMB_STOP_AMPM,
         IDC_LBL_PERIOD_DISPLAY,
     ] {
         if let Ok(h) = unsafe { GetDlgItem(Some(hwnd), id) } {
@@ -417,6 +465,104 @@ fn tooltip_text(state: &AppState) -> String {
     } else {
         text
     }
+}
+
+fn init_auto_stop_controls(hwnd: HWND, minutes_local: u16) {
+    let hour = auto_stop_display_hour(minutes_local);
+    let minute = auto_stop_minute(minutes_local);
+    let period_idx = auto_stop_period_index(minutes_local);
+
+    let _ = unsafe { SetDlgItemInt(hwnd, IDC_NUD_STOP_HOUR, hour as u32, false) };
+    let _ = unsafe { SetDlgItemInt(hwnd, IDC_NUD_STOP_MINUTE, minute as u32, false) };
+
+    for label in ["AM", "PM"] {
+        let wide = to_wide(label);
+        unsafe {
+            SendDlgItemMessageW(
+                hwnd,
+                IDC_CMB_STOP_AMPM,
+                CB_ADDSTRING,
+                WPARAM(0),
+                LPARAM(wide.as_ptr() as isize),
+            );
+        }
+    }
+    unsafe {
+        SendDlgItemMessageW(
+            hwnd,
+            IDC_CMB_STOP_AMPM,
+            CB_SETCURSEL,
+            WPARAM(period_idx),
+            LPARAM(0),
+        );
+    }
+}
+
+fn set_auto_stop_controls_enabled(hwnd: HWND, enabled: bool) {
+    let value = enabled.into();
+    for id in [IDC_NUD_STOP_HOUR, IDC_LBL_STOP_COLON, IDC_NUD_STOP_MINUTE, IDC_CMB_STOP_AMPM] {
+        if let Ok(h) = unsafe { GetDlgItem(Some(hwnd), id) } {
+            unsafe {
+                let _ = EnableWindow(h, value);
+            }
+        }
+    }
+}
+
+fn auto_stop_due_now(settings: &Settings) -> bool {
+    settings.auto_stop_enabled
+        && current_local_minutes().is_some_and(|minutes| minutes >= settings.auto_stop_minutes_local)
+}
+
+fn current_local_minutes() -> Option<u16> {
+    let local = unsafe { GetLocalTime() };
+    let hour = u16::from(local.wHour);
+    let minute = u16::from(local.wMinute);
+    if hour < 24 && minute < 60 {
+        Some(hour * 60 + minute)
+    } else {
+        None
+    }
+}
+
+fn auto_stop_display_hour(minutes_local: u16) -> u16 {
+    let hour24 = (minutes_local / 60) % 24;
+    match hour24 % 12 {
+        0 => 12,
+        value => value,
+    }
+}
+
+fn auto_stop_minute(minutes_local: u16) -> u16 {
+    minutes_local % 60
+}
+
+fn auto_stop_period_index(minutes_local: u16) -> usize {
+    if (minutes_local / 60) % 24 < 12 {
+        AM_INDEX
+    } else {
+        PM_INDEX
+    }
+}
+
+fn read_auto_stop_minutes(hwnd: HWND) -> u16 {
+    let raw_hour = read_dlg_int(hwnd, IDC_NUD_STOP_HOUR);
+    let raw_minute = read_dlg_int(hwnd, IDC_NUD_STOP_MINUTE);
+    let hour12 = raw_hour.clamp(1, 12);
+    let minute = raw_minute.clamp(0, 59);
+    let period_idx =
+        unsafe { SendDlgItemMessageW(hwnd, IDC_CMB_STOP_AMPM, CB_GETCURSEL, WPARAM(0), LPARAM(0)) }
+            .0 as usize;
+    let is_pm = period_idx == PM_INDEX;
+
+    let hour24 = match (hour12, is_pm) {
+        (12, false) => 0,
+        (12, true) => 12,
+        (h, false) => h,
+        (h, true) => h + 12,
+    };
+
+    (hour24 * 60 + minute) as u16
 }
 
 // ---------- Small control helpers ----------

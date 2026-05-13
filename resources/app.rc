@@ -43,10 +43,11 @@ END
 //   Always-visible top row:  "Jiggling?" checkbox, "Settings..." toggle,
 //                            "Minimize to tray" + "About" buttons.
 //   Settings panel (toggled via SETTINGS): mode, period, distance,
-//                                          random, minimize-on-startup.
+//                                          random, minimize-on-startup,
+//                                          daily local-time auto-stop.
 //------------------------------------------------------------------------------
 
-IDD_MAIN DIALOGEX 0, 0, 220, 165
+IDD_MAIN DIALOGEX 0, 0, 220, 195
 STYLE DS_SETFONT | DS_CENTER | WS_MINIMIZEBOX | WS_SYSMENU | WS_CAPTION | WS_POPUP | WS_VISIBLE
 CAPTION "Mouse Jiggler"
 FONT 9, "Segoe UI", 400, 0, 0x1
@@ -57,7 +58,7 @@ BEGIN
     PUSHBUTTON      "&About",             IDC_BTN_ABOUT,      150,  26,  60, 12
 
     // ---- Settings panel (initially hidden; toggled by IDC_SETTINGS) ----
-    GROUPBOX        "Settings",           IDC_PANEL_SETTINGS,  10,  45, 200, 110
+    GROUPBOX        "Settings",           IDC_PANEL_SETTINGS,  10,  45, 200, 140
 
     LTEXT           "Mode:",              IDC_LBL_MODE,        18,  60,  40,  9
     COMBOBOX                              IDC_CMB_MODE,        65,  58, 140, 60,
@@ -75,6 +76,13 @@ BEGIN
                                           IDC_CB_RANDOM,       18, 114, 180, 10
     AUTOCHECKBOX    "Minimize on start&up",
                                           IDC_CB_MINIMIZE,     18, 128, 180, 10
+    AUTOCHECKBOX    "Auto stop at:",
+                                          IDC_CB_AUTO_STOP,    18, 144, 64, 10
+    EDITTEXT                              IDC_NUD_STOP_HOUR,   88, 142, 20, 12, ES_RIGHT | ES_NUMBER | WS_TABSTOP
+    LTEXT           ":",                  IDC_LBL_STOP_COLON, 110, 144,  6,  9
+    EDITTEXT                              IDC_NUD_STOP_MINUTE, 116, 142, 20, 12, ES_RIGHT | ES_NUMBER | WS_TABSTOP
+    COMBOBOX                              IDC_CMB_STOP_AMPM,   142, 140, 50, 60,
+                    CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
 END
 
 //------------------------------------------------------------------------------
