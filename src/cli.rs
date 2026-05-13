@@ -114,11 +114,12 @@ where
 }
 
 pub fn print_help() {
-    let text = "\
-Mouse Jiggler (Rust) — virtually jiggles the mouse, making the computer seem not idle.
+    let text = format!(
+        "\
+Mouse Jiggler Neo - virtually jiggles the mouse, making the computer seem not idle.
 
 Usage:
-  mousejiggler-rs [options]
+  {} [options]
 
 Options:
   -j, --jiggle               Start with jiggling enabled.
@@ -130,12 +131,18 @@ Options:
   -d, --distance <N>         Distance multiplier (1..=120).
   -g, --settings             Start with settings panel displayed.
   -?, -h, --help             Show help and usage information.
-      --version              Show version information.";
-    console_println(text);
+      --version              Show version information.",
+        env!("CARGO_PKG_NAME")
+    );
+    console_println(&text);
 }
 
 pub fn print_version() {
-    console_println(concat!("mousejiggler-rs ", env!("CARGO_PKG_VERSION")));
+    console_println(&format!(
+        "{} {}",
+        env!("CARGO_PKG_NAME"),
+        env!("CARGO_PKG_VERSION")
+    ));
 }
 
 #[cfg(test)]

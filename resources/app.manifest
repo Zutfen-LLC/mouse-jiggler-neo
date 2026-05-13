@@ -2,9 +2,9 @@
 <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
   <assemblyIdentity
       type="win32"
-      name="ZutfenLLC.MouseJigglerRs"
+      name="ZutfenLLC.MouseJigglerNeo"
       version="3.0.0.0"/>
-  <description>Mouse Jiggler (Rust)</description>
+  <description>Mouse Jiggler Neo</description>
 
   <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3">
     <security>
