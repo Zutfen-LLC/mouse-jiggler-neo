@@ -17,12 +17,11 @@ use windows::core::Error;
 use windows::core::PCWSTR;
 
 use crate::ids::{
-    DISTANCE_MAX, DISTANCE_MIN, IDC_BTN_ABOUT, IDC_BTN_TRAYIFY, IDC_CB_AUTO_STOP,
-    IDC_CB_MINIMIZE, IDC_CB_RANDOM, IDC_CMB_MODE, IDC_CMB_STOP_AMPM, IDC_JIGGLING,
-    IDC_LBL_PERIOD_DISPLAY, IDC_LBL_STOP_COLON, IDC_NUD_DISTANCE, IDC_NUD_PERIOD,
-    IDC_NUD_STOP_HOUR, IDC_NUD_STOP_MINUTE, IDC_PANEL_SETTINGS, IDC_SETTINGS, IDD_MAIN,
-    IDM_TRAY_EXIT, IDM_TRAY_OPEN, IDM_TRAY_START, IDM_TRAY_STOP, PERIOD_MAX, PERIOD_MIN,
-    TIMER_JIGGLE, WM_APP_TRAY,
+    DISTANCE_MAX, DISTANCE_MIN, IDC_BTN_ABOUT, IDC_BTN_TRAYIFY, IDC_CB_AUTO_STOP, IDC_CB_MINIMIZE,
+    IDC_CB_RANDOM, IDC_CMB_MODE, IDC_CMB_STOP_AMPM, IDC_JIGGLING, IDC_LBL_PERIOD_DISPLAY,
+    IDC_LBL_STOP_COLON, IDC_NUD_DISTANCE, IDC_NUD_PERIOD, IDC_NUD_STOP_HOUR, IDC_NUD_STOP_MINUTE,
+    IDC_PANEL_SETTINGS, IDC_SETTINGS, IDD_MAIN, IDM_TRAY_EXIT, IDM_TRAY_OPEN, IDM_TRAY_START,
+    IDM_TRAY_STOP, PERIOD_MAX, PERIOD_MIN, TIMER_JIGGLE, WM_APP_TRAY,
 };
 use crate::jiggle::{self, Mode, PauseDetector};
 use crate::rng::Rng;
@@ -87,11 +86,11 @@ fn state_from_hwnd<'a>(hwnd: HWND) -> Option<&'a mut AppState> {
 }
 
 unsafe extern "system" fn dlg_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> isize {
-    if let Some(state) = state_from_hwnd(hwnd) {
-        if msg == state.taskbar_created_msg {
-            on_taskbar_created(state);
-            return 0;
-        }
+    if let Some(state) = state_from_hwnd(hwnd)
+        && msg == state.taskbar_created_msg
+    {
+        on_taskbar_created(state);
+        return 0;
     }
 
     match msg {
@@ -511,8 +510,13 @@ fn init_auto_stop_controls(hwnd: HWND, minutes_local: u16) {
 }
 
 fn set_auto_stop_controls_enabled(hwnd: HWND, enabled: bool) {
-    let value = enabled.into();
-    for id in [IDC_NUD_STOP_HOUR, IDC_LBL_STOP_COLON, IDC_NUD_STOP_MINUTE, IDC_CMB_STOP_AMPM] {
+    let value = enabled;
+    for id in [
+        IDC_NUD_STOP_HOUR,
+        IDC_LBL_STOP_COLON,
+        IDC_NUD_STOP_MINUTE,
+        IDC_CMB_STOP_AMPM,
+    ] {
         if let Ok(h) = unsafe { GetDlgItem(Some(hwnd), id) } {
             unsafe {
                 let _ = EnableWindow(h, value);
@@ -523,13 +527,14 @@ fn set_auto_stop_controls_enabled(hwnd: HWND, enabled: bool) {
 
 fn auto_stop_due_now(settings: &Settings) -> bool {
     settings.auto_stop_enabled
-        && current_local_minutes().is_some_and(|minutes| minutes >= settings.auto_stop_minutes_local)
+        && current_local_minutes()
+            .is_some_and(|minutes| minutes >= settings.auto_stop_minutes_local)
 }
 
 fn current_local_minutes() -> Option<u16> {
     let local = unsafe { GetLocalTime() };
-    let hour = u16::from(local.wHour);
-    let minute = u16::from(local.wMinute);
+    let hour = local.wHour;
+    let minute = local.wMinute;
     if hour < 24 && minute < 60 {
         Some(hour * 60 + minute)
     } else {

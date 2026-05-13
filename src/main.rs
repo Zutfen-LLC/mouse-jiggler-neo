@@ -99,8 +99,7 @@ fn main() -> std::process::ExitCode {
     let stored = settings::load();
     let effective = resolve_initial(&args, stored);
     let taskbar_created = to_wide("TaskbarCreated");
-    let taskbar_created_msg =
-        unsafe { RegisterWindowMessageW(PCWSTR(taskbar_created.as_ptr())) };
+    let taskbar_created_msg = unsafe { RegisterWindowMessageW(PCWSTR(taskbar_created.as_ptr())) };
 
     let state = Box::new(AppState {
         instance,
