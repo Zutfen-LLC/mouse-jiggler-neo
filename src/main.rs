@@ -21,8 +21,8 @@ use windows::Win32::UI::HiDpi::{
     DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2, SetProcessDpiAwarenessContext,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    DispatchMessageW, GetMessageW, HICON, IsDialogMessageW, LoadIconW, MSG, SW_SHOW, ShowWindow,
-    TranslateMessage,
+    DispatchMessageW, GetMessageW, HICON, IsDialogMessageW, LoadIconW, MSG, RegisterWindowMessageW,
+    SW_SHOW, ShowWindow, TranslateMessage,
 };
 use windows::core::PCWSTR;
 
@@ -30,6 +30,7 @@ use crate::cli::{Args, ParseOutcome};
 use crate::ids::IDI_APP;
 use crate::single_instance::AcquireResult;
 use crate::ui_main::AppState;
+use crate::util::to_wide;
 
 fn main() -> std::process::ExitCode {
     // Attach to parent console so --help / --version / single-instance errors
@@ -97,6 +98,8 @@ fn main() -> std::process::ExitCode {
     // Resolve effective initial state from (settings ⊕ CLI overrides).
     let stored = settings::load();
     let effective = resolve_initial(&args, stored);
+    let taskbar_created = to_wide("TaskbarCreated");
+    let taskbar_created_msg = unsafe { RegisterWindowMessageW(PCWSTR(taskbar_created.as_ptr())) };
 
     let state = Box::new(AppState {
         instance,
@@ -106,10 +109,12 @@ fn main() -> std::process::ExitCode {
         pause: jiggle::PauseDetector::default(),
         rng: rng::Rng::new(),
         tray: tray::Tray::new(windows::Win32::Foundation::HWND::default(), icon),
+        tray_hidden: false,
         settings_panel_visible: false,
         start_jiggling_on_load: args.jiggle,
         minimize_on_load: effective.minimize,
         show_settings_on_load: args.settings_panel,
+        taskbar_created_msg,
         initializing: false,
     });
 

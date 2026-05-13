@@ -20,8 +20,8 @@ const TRAY_ICON_UID: u32 = 1;
 pub struct Tray {
     owner: HWND,
     icon: HICON,
-    /// Whether the icon is currently shown in the notification area.
-    pub visible: bool,
+    /// Whether the icon is currently registered with the shell.
+    pub registered: bool,
 }
 
 impl Tray {
@@ -29,7 +29,7 @@ impl Tray {
         Self {
             owner,
             icon,
-            visible: false,
+            registered: false,
         }
     }
 
@@ -59,27 +59,41 @@ impl Tray {
         nid
     }
 
-    pub fn add(&mut self, tip: &str) {
+    pub fn add(&mut self, tip: &str) -> bool {
         let nid = self.build_nid(tip, (NIF_ICON | NIF_MESSAGE | NIF_TIP).0);
-        let _ = unsafe { Shell_NotifyIconW(NIM_ADD, &nid) };
-        self.visible = true;
+        let ok = unsafe { Shell_NotifyIconW(NIM_ADD, &nid).as_bool() };
+        self.registered = ok;
+        ok
     }
 
-    pub fn update_tip(&mut self, tip: &str) {
-        if !self.visible {
-            return;
+    pub fn ensure_added(&mut self, tip: &str) -> bool {
+        if self.registered {
+            self.update_tip(tip)
+        } else {
+            self.add(tip)
+        }
+    }
+
+    pub fn update_tip(&mut self, tip: &str) -> bool {
+        if !self.registered {
+            return false;
         }
         let nid = self.build_nid(tip, (NIF_TIP).0);
-        let _ = unsafe { Shell_NotifyIconW(NIM_MODIFY, &nid) };
+        let ok = unsafe { Shell_NotifyIconW(NIM_MODIFY, &nid).as_bool() };
+        if !ok {
+            self.registered = false;
+        }
+        ok
     }
 
-    pub fn remove(&mut self) {
-        if !self.visible {
-            return;
+    pub fn remove(&mut self) -> bool {
+        if !self.registered {
+            return false;
         }
         let nid = self.build_nid("", 0);
-        let _ = unsafe { Shell_NotifyIconW(NIM_DELETE, &nid) };
-        self.visible = false;
+        let ok = unsafe { Shell_NotifyIconW(NIM_DELETE, &nid).as_bool() };
+        self.registered = false;
+        ok
     }
 }
 
