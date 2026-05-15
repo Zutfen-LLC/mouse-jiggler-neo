@@ -1,34 +1,25 @@
-//! Settings persistence — HKCU\Software\Zutfen-LLC\MouseJiggler.
+//! Settings persistence via a portable JSON config file.
 //!
-//! Replaces the C# `Settings.Default` (user.config). Seven values, loaded
-//! on startup, written through on every change.
+//! Seven values are loaded on startup and written through on every change.
 
-use windows::Win32::System::Registry::{
-    HKEY, HKEY_CURRENT_USER, KEY_READ, KEY_SET_VALUE, REG_DWORD, REG_OPENED_EXISTING_KEY,
-    REG_OPTION_NON_VOLATILE, REG_SZ, RegCloseKey, RegCreateKeyExW, RegQueryValueExW,
-    RegSetValueExW,
-};
-use windows::core::PCWSTR;
+use std::env;
+use std::fs;
+use std::path::{Path, PathBuf};
+
+use serde::{Deserialize, Serialize};
 
 use crate::ids::{
     DISTANCE_DEFAULT, DISTANCE_MAX, DISTANCE_MIN, PERIOD_DEFAULT, PERIOD_MAX, PERIOD_MIN,
 };
 use crate::jiggle::Mode;
-use crate::util::to_wide;
 
-const SUBKEY: &str = "Software\\Zutfen-LLC\\MouseJiggler";
-
-const V_MINIMIZE: &str = "MinimizeOnStartup";
-const V_RANDOM: &str = "RandomTimer";
-const V_MODE: &str = "JiggleMode";
-const V_PERIOD: &str = "JigglePeriod";
-const V_DISTANCE: &str = "JiggleDistance";
-const V_AUTO_STOP_ENABLED: &str = "AutoStopEnabled";
-const V_AUTO_STOP_MINUTES_LOCAL: &str = "AutoStopMinutesLocal";
+const CONFIG_FILE_NAME: &str = "mouse-jiggler-neo.json";
+const FALLBACK_DIR_VENDOR: &str = "Zutfen-LLC";
+const FALLBACK_DIR_APP: &str = "MouseJiggler";
 
 pub const AUTO_STOP_DEFAULT_MINUTES_LOCAL: u16 = 17 * 60;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Settings {
     pub minimize_on_startup: bool,
     pub random_timer: bool,
@@ -61,161 +52,228 @@ fn clamp_auto_stop_minutes(value: u32) -> u16 {
     }
 }
 
-fn open_or_create() -> Option<HKEY> {
-    let path = to_wide(SUBKEY);
-    let mut hkey = HKEY::default();
-    let mut disposition = REG_OPENED_EXISTING_KEY;
-    let status = unsafe {
-        RegCreateKeyExW(
-            HKEY_CURRENT_USER,
-            PCWSTR(path.as_ptr()),
-            None,
-            PCWSTR::null(),
-            REG_OPTION_NON_VOLATILE,
-            KEY_READ | KEY_SET_VALUE,
-            None,
-            &mut hkey,
-            Some(&mut disposition),
-        )
-    };
-    if status.is_ok() { Some(hkey) } else { None }
+fn sanitize(mut settings: Settings) -> Settings {
+    settings.period_secs = settings.period_secs.clamp(PERIOD_MIN, PERIOD_MAX);
+    settings.distance = settings.distance.clamp(DISTANCE_MIN, DISTANCE_MAX);
+    settings.auto_stop_minutes_local =
+        clamp_auto_stop_minutes(settings.auto_stop_minutes_local as u32);
+    settings
 }
 
-fn close(hkey: HKEY) {
-    unsafe {
-        let _ = RegCloseKey(hkey);
-    }
+fn primary_config_path() -> Option<PathBuf> {
+    let exe = env::current_exe().ok()?;
+    Some(exe.parent()?.join(CONFIG_FILE_NAME))
 }
 
-fn read_dword(hkey: HKEY, name: &str) -> Option<u32> {
-    let name_w = to_wide(name);
-    let mut ty = REG_DWORD;
-    let mut buf = [0u8; 4];
-    let mut cb: u32 = 4;
-    let status = unsafe {
-        RegQueryValueExW(
-            hkey,
-            PCWSTR(name_w.as_ptr()),
-            None,
-            Some(&mut ty),
-            Some(buf.as_mut_ptr()),
-            Some(&mut cb),
-        )
-    };
-    if status.is_ok() && ty == REG_DWORD && cb == 4 {
-        Some(u32::from_le_bytes(buf))
-    } else {
-        None
-    }
+fn fallback_config_path() -> Option<PathBuf> {
+    let local_app_data = env::var_os("LOCALAPPDATA")?;
+    Some(
+        PathBuf::from(local_app_data)
+            .join(FALLBACK_DIR_VENDOR)
+            .join(FALLBACK_DIR_APP)
+            .join(CONFIG_FILE_NAME),
+    )
 }
 
-fn read_string(hkey: HKEY, name: &str) -> Option<String> {
-    let name_w = to_wide(name);
-    let mut ty = REG_SZ;
-    // First call: ask for required size.
-    let mut cb: u32 = 0;
-    let _ = unsafe {
-        RegQueryValueExW(
-            hkey,
-            PCWSTR(name_w.as_ptr()),
-            None,
-            Some(&mut ty),
-            None,
-            Some(&mut cb),
-        )
-    };
-    if ty != REG_SZ || cb == 0 {
-        return None;
-    }
-    let mut buf: Vec<u8> = vec![0u8; cb as usize];
-    let status = unsafe {
-        RegQueryValueExW(
-            hkey,
-            PCWSTR(name_w.as_ptr()),
-            None,
-            Some(&mut ty),
-            Some(buf.as_mut_ptr()),
-            Some(&mut cb),
-        )
-    };
-    if !status.is_ok() {
-        return None;
-    }
-    // cb is bytes including any trailing nulls.
-    let wide: Vec<u16> = buf
-        .chunks_exact(2)
-        .map(|c| u16::from_le_bytes([c[0], c[1]]))
-        .take_while(|&w| w != 0)
-        .collect();
-    Some(String::from_utf16_lossy(&wide))
+fn read_settings_file(path: &Path) -> Option<Settings> {
+    let bytes = fs::read(path).ok()?;
+    let settings: Settings = serde_json::from_slice(&bytes).ok()?;
+    Some(sanitize(settings))
 }
 
-fn write_dword(hkey: HKEY, name: &str, value: u32) {
-    let name_w = to_wide(name);
-    let bytes = value.to_le_bytes();
-    unsafe {
-        let _ = RegSetValueExW(hkey, PCWSTR(name_w.as_ptr()), None, REG_DWORD, Some(&bytes));
+fn load_from_paths(primary: Option<&Path>, fallback: Option<&Path>) -> Settings {
+    if let Some(path) = primary
+        && path.exists()
+    {
+        return read_settings_file(path).unwrap_or_default();
     }
+
+    if let Some(path) = fallback
+        && path.exists()
+    {
+        return read_settings_file(path).unwrap_or_default();
+    }
+
+    Settings::default()
 }
 
-fn write_string(hkey: HKEY, name: &str, value: &str) {
-    let name_w = to_wide(name);
-    let wide: Vec<u16> = value.encode_utf16().chain(std::iter::once(0)).collect();
-    let bytes: &[u8] =
-        unsafe { std::slice::from_raw_parts(wide.as_ptr() as *const u8, wide.len() * 2) };
-    unsafe {
-        let _ = RegSetValueExW(hkey, PCWSTR(name_w.as_ptr()), None, REG_SZ, Some(bytes));
+fn write_settings_file(path: &Path, settings: &Settings) -> std::io::Result<()> {
+    let json = serde_json::to_vec_pretty(settings)
+        .map_err(|err| std::io::Error::other(err.to_string()))?;
+    fs::write(path, json)
+}
+
+fn save_to_paths(settings: &Settings, primary: Option<&Path>, fallback: Option<&Path>) {
+    let settings = sanitize(settings.clone());
+
+    if let Some(path) = primary
+        && write_settings_file(path, &settings).is_ok()
+    {
+        return;
+    }
+
+    if let Some(path) = fallback {
+        if let Some(parent) = path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
+        let _ = write_settings_file(path, &settings);
     }
 }
 
 pub fn load() -> Settings {
-    let mut s = Settings::default();
-    let Some(hkey) = open_or_create() else {
-        return s;
-    };
-
-    if let Some(v) = read_dword(hkey, V_MINIMIZE) {
-        s.minimize_on_startup = v != 0;
-    }
-    if let Some(v) = read_dword(hkey, V_RANDOM) {
-        s.random_timer = v != 0;
-    }
-    if let Some(v) = read_string(hkey, V_MODE)
-        && let Some(m) = Mode::parse(&v)
-    {
-        s.mode = m;
-    }
-    if let Some(v) = read_dword(hkey, V_PERIOD) {
-        s.period_secs = v.clamp(PERIOD_MIN, PERIOD_MAX);
-    }
-    if let Some(v) = read_dword(hkey, V_DISTANCE) {
-        s.distance = v.clamp(DISTANCE_MIN, DISTANCE_MAX);
-    }
-    if let Some(v) = read_dword(hkey, V_AUTO_STOP_ENABLED) {
-        s.auto_stop_enabled = v != 0;
-    }
-    if let Some(v) = read_dword(hkey, V_AUTO_STOP_MINUTES_LOCAL) {
-        s.auto_stop_minutes_local = clamp_auto_stop_minutes(v);
-    }
-
-    close(hkey);
-    s
+    let primary = primary_config_path();
+    let fallback = fallback_config_path();
+    load_from_paths(primary.as_deref(), fallback.as_deref())
 }
 
-pub fn save(s: &Settings) {
-    let Some(hkey) = open_or_create() else {
-        return;
-    };
-    write_dword(hkey, V_MINIMIZE, s.minimize_on_startup as u32);
-    write_dword(hkey, V_RANDOM, s.random_timer as u32);
-    write_string(hkey, V_MODE, s.mode.as_str());
-    write_dword(hkey, V_PERIOD, s.period_secs);
-    write_dword(hkey, V_DISTANCE, s.distance);
-    write_dword(hkey, V_AUTO_STOP_ENABLED, s.auto_stop_enabled as u32);
-    write_dword(
-        hkey,
-        V_AUTO_STOP_MINUTES_LOCAL,
-        s.auto_stop_minutes_local as u32,
-    );
-    close(hkey);
+pub fn save(settings: &Settings) {
+    let primary = primary_config_path();
+    let fallback = fallback_config_path();
+    save_to_paths(settings, primary.as_deref(), fallback.as_deref());
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn sample_settings() -> Settings {
+        Settings {
+            minimize_on_startup: true,
+            random_timer: true,
+            mode: Mode::Circle,
+            period_secs: 42,
+            distance: 7,
+            auto_stop_enabled: true,
+            auto_stop_minutes_local: 23 * 60 + 15,
+        }
+    }
+
+    fn unique_test_dir(name: &str) -> PathBuf {
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time before epoch")
+            .as_nanos();
+        let dir = env::temp_dir().join(format!("mouse-jiggler-neo-{name}-{stamp}"));
+        fs::create_dir_all(&dir).expect("create temp dir");
+        dir
+    }
+
+    #[test]
+    fn json_round_trip_preserves_all_fields() {
+        let settings = sample_settings();
+        let json = serde_json::to_string(&settings).expect("serialize settings");
+        let parsed: Settings = serde_json::from_str(&json).expect("deserialize settings");
+        assert_eq!(parsed, settings);
+    }
+
+    #[test]
+    fn load_clamps_out_of_range_values() {
+        let dir = unique_test_dir("clamp");
+        let path = dir.join(CONFIG_FILE_NAME);
+        fs::write(
+            &path,
+            r#"{
+  "minimize_on_startup": true,
+  "random_timer": false,
+  "mode": "Linear",
+  "period_secs": 999999,
+  "distance": 0,
+  "auto_stop_enabled": true,
+  "auto_stop_minutes_local": 9999
+}"#,
+        )
+        .expect("write config");
+
+        let loaded = load_from_paths(Some(&path), None);
+
+        assert_eq!(loaded.period_secs, PERIOD_MAX);
+        assert_eq!(loaded.distance, DISTANCE_MIN);
+        assert_eq!(
+            loaded.auto_stop_minutes_local,
+            AUTO_STOP_DEFAULT_MINUTES_LOCAL
+        );
+    }
+
+    #[test]
+    fn primary_path_takes_precedence_over_fallback() {
+        let dir = unique_test_dir("primary-wins");
+        let primary = dir.join("primary.json");
+        let fallback = dir.join("fallback.json");
+
+        let mut primary_settings = sample_settings();
+        primary_settings.mode = Mode::Normal;
+        let mut fallback_settings = sample_settings();
+        fallback_settings.mode = Mode::Zen;
+
+        fs::write(
+            &primary,
+            serde_json::to_vec(&primary_settings).expect("serialize primary"),
+        )
+        .expect("write primary");
+        fs::write(
+            &fallback,
+            serde_json::to_vec(&fallback_settings).expect("serialize fallback"),
+        )
+        .expect("write fallback");
+
+        let loaded = load_from_paths(Some(&primary), Some(&fallback));
+        assert_eq!(loaded, primary_settings);
+    }
+
+    #[test]
+    fn fallback_is_used_when_primary_is_absent() {
+        let dir = unique_test_dir("fallback");
+        let fallback = dir.join("fallback.json");
+        let settings = sample_settings();
+
+        fs::write(
+            &fallback,
+            serde_json::to_vec(&settings).expect("serialize fallback"),
+        )
+        .expect("write fallback");
+
+        let loaded = load_from_paths(None, Some(&fallback));
+        assert_eq!(loaded, settings);
+    }
+
+    #[test]
+    fn defaults_are_used_when_no_config_exists() {
+        let dir = unique_test_dir("defaults");
+        let primary = dir.join("missing-primary.json");
+        let fallback = dir.join("missing-fallback.json");
+
+        let loaded = load_from_paths(Some(&primary), Some(&fallback));
+        assert_eq!(loaded, Settings::default());
+    }
+
+    #[test]
+    fn save_prefers_primary_when_it_is_writable() {
+        let dir = unique_test_dir("save-primary");
+        let primary = dir.join("primary.json");
+        let fallback = dir.join("fallback.json");
+        let settings = sample_settings();
+
+        save_to_paths(&settings, Some(&primary), Some(&fallback));
+
+        assert!(primary.exists());
+        assert!(!fallback.exists());
+        let loaded = load_from_paths(Some(&primary), Some(&fallback));
+        assert_eq!(loaded, settings);
+    }
+
+    #[test]
+    fn save_falls_back_when_primary_write_fails() {
+        let dir = unique_test_dir("save-fallback");
+        let primary_dir = dir.join("primary-dir");
+        let fallback = dir.join("fallback").join(CONFIG_FILE_NAME);
+        let settings = sample_settings();
+
+        fs::create_dir_all(&primary_dir).expect("create unwritable primary target");
+        save_to_paths(&settings, Some(&primary_dir), Some(&fallback));
+
+        assert!(fallback.exists());
+        let loaded = load_from_paths(None, Some(&fallback));
+        assert_eq!(loaded, settings);
+    }
 }

@@ -1,5 +1,6 @@
 //! Jiggle patterns, SendInput, execution state, smart-pause.
 
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use windows::Win32::Foundation::POINT;
 use windows::Win32::System::Power::{
     ES_CONTINUOUS, ES_DISPLAY_REQUIRED, ES_SYSTEM_REQUIRED, SetThreadExecutionState,
@@ -39,6 +40,25 @@ impl Mode {
 
     pub fn all() -> &'static [Mode] {
         &[Mode::Normal, Mode::Zen, Mode::Circle, Mode::Linear]
+    }
+}
+
+impl Serialize for Mode {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for Mode {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = String::deserialize(deserializer)?;
+        Mode::parse(&value).ok_or_else(|| serde::de::Error::custom("invalid jiggle mode"))
     }
 }
 
@@ -166,5 +186,45 @@ mod tests {
         assert_eq!(pattern_len(Mode::Zen), 1);
         assert_eq!(pattern_len(Mode::Circle), 8);
         assert_eq!(pattern_len(Mode::Linear), 2);
+    }
+
+    #[test]
+    fn serializes_modes_using_public_names() {
+        assert_eq!(
+            serde_json::to_string(&Mode::Normal).expect("serialize"),
+            "\"Normal\""
+        );
+        assert_eq!(
+            serde_json::to_string(&Mode::Zen).expect("serialize"),
+            "\"Zen\""
+        );
+        assert_eq!(
+            serde_json::to_string(&Mode::Circle).expect("serialize"),
+            "\"Circle\""
+        );
+        assert_eq!(
+            serde_json::to_string(&Mode::Linear).expect("serialize"),
+            "\"Linear\""
+        );
+    }
+
+    #[test]
+    fn deserializes_modes_from_public_names() {
+        assert_eq!(
+            serde_json::from_str::<Mode>("\"Normal\"").expect("deserialize"),
+            Mode::Normal
+        );
+        assert_eq!(
+            serde_json::from_str::<Mode>("\"Zen\"").expect("deserialize"),
+            Mode::Zen
+        );
+        assert_eq!(
+            serde_json::from_str::<Mode>("\"Circle\"").expect("deserialize"),
+            Mode::Circle
+        );
+        assert_eq!(
+            serde_json::from_str::<Mode>("\"Linear\"").expect("deserialize"),
+            Mode::Linear
+        );
     }
 }
