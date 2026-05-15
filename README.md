@@ -13,7 +13,7 @@ No WinForms, no .NET runtime, no extra DLLs. A single native `.exe` that talks d
 - Smart-pause: stops jiggling while the user is actively moving the mouse
 - Keeps the display and system awake via `SetThreadExecutionState`
 - System tray icon with context menu, minimize-to-tray, and start-minimized
-- Per-user settings persisted to `HKCU\Software\Zutfen-LLC\MouseJiggler` (registry), including daily auto-stop time
+- Settings persisted to a JSON config file, including daily auto-stop time
 - Single-instance enforcement via a named mutex
 - Per-monitor DPI awareness
 - CLI flags for headless / scripted launches
@@ -32,7 +32,7 @@ The release profile is tuned for small binaries (`opt-level = "z"`, LTO, single 
 
 ## Usage
 
-Launch with no arguments for the GUI. CLI flags override the stored settings for this run only - they do not get written back to the registry.
+Launch with no arguments for the GUI. CLI flags override the stored settings for this run only - they do not get written back to the config file.
 
 ```text
 mouse-jiggler-neo [options]
@@ -56,6 +56,15 @@ mouse-jiggler-neo -j -m -o Circle -s 30
 
 `--help` and `--version` print to the parent console when launched from a terminal (the process is otherwise a `windows_subsystem = "windows"` GUI app, so it does not allocate a console of its own).
 
+## Configuration
+
+Persistent settings are stored as JSON using this path order:
+
+- Primary: `mouse-jiggler-neo.json` next to the running executable
+- Fallback: `%LOCALAPPDATA%\Zutfen-LLC\MouseJiggler\mouse-jiggler-neo.json`
+
+On startup the app loads the primary file if it exists, otherwise the fallback file if it exists, otherwise defaults. When saving, it tries the primary path first and silently falls back to `%LOCALAPPDATA%` if the executable directory is not writable.
+
 ## Project layout
 
 ```text
@@ -63,7 +72,7 @@ src/
   main.rs              Entry point: CLI parse, single-instance, message loop
   cli.rs               Hand-rolled flag parser
   jiggle.rs            Patterns, SendInput, smart-pause, execution state
-  settings.rs          Registry-backed persistence
+  settings.rs          JSON config-file persistence
   single_instance.rs   Named-mutex guard
   tray.rs              Shell_NotifyIcon wrapper
   ui_main.rs           Main dialog + control wiring
@@ -80,12 +89,7 @@ build.rs               Invokes embed-resource to compile app.rc
 
 ## Compatibility notes
 
-This build keeps a few historical behaviors for compatibility:
-
-- Same registry value names and behavior, but under `HKCU\Software\Zutfen-LLC\MouseJiggler`
-- Same CLI surface, jiggle patterns, and clamp ranges
-
-Changing the registry vendor path means this build does not share saved preferences with older builds unless you migrate that key.
+This build keeps the same CLI surface, jiggle patterns, and clamp ranges as earlier builds.
 
 ## License
 
